@@ -10,6 +10,9 @@
 ; There is no port state detection 'cause it lay in front of me (:
 ; If used in quasi-bidirectional environment you must check if port is not pulled
 ; down by its local periphery before writing him to be high remotely etc..
+;
+; By the way. LED on B0 port will blink in case of TWI error or if device scan failed.
+; That is a copy form scanning repo. Just a bonus.
 
 #include <avr/io.h>
 #include <util/twi.h>
