@@ -7,7 +7,7 @@
 ; scans twi bus for pcf8574 extension
 ; and switches "remote" led on and off
 ;
-; There is no port state detection 'cause it lay in front of me (:
+; There is no port state detection 'cause it lies in front of me (:
 ; If used in quasi-bidirectional environment you must check if port is not pulled
 ; down by its local periphery before writing him to be high remotely etc..
 ;
@@ -15,7 +15,6 @@
 ; That is a copy form scanning repo. Just a bonus.
 
 #include <avr/io.h>
-#include <util/twi.h>
 
 #undef __SFR_OFFSET
 #define __SFR_OFFSET 0
