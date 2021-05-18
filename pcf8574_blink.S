@@ -5,13 +5,14 @@
 
 ; ATmega8 @4MHz internal osc. (H:D9, L:23)
 ; scans twi bus for pcf8574 extension
-; and switches "remote" led on and off
+; and instructs "remote" P3 to be toggled on and off rep.
+; if 16x2 lcd is connected its backlight led also blinks
 ;
 ; There is no port state detection 'cause it lies in front of me (:
 ; If used in quasi-bidirectional environment you must check if port is not pulled
 ; down by its local periphery before writing him to be high remotely etc..
 ;
-; By the way. LED on B0 port will blink in case of TWI error or if device scan failed.
+; By the way. LED on D7 port will blink in case of TWI error or if device scan failed.
 ; That is a copy form scanning repo. Just a bonus.
 
 #include <avr/io.h>
@@ -35,10 +36,10 @@ data = 20			; twi data reg
 
 .global main                    ;
 main:				;
-	rcall led_port_init	; B0 out,low
+	rcall led_port_init	; D7 out,low
 	rcall timer_init	; timer0
 	rcall twi_init		; 100kHz
-	rcall twi_scan		; downwards 127..0 (0 = not answered scan)
+	rcall twi_scan		; downwards 127..0 (0 = none answered)
         cpi address, 0          ; there was no answer
         brne main1              ; if not cleared
 	rcall error_blink	; error blink
@@ -51,7 +52,7 @@ main:				;
 
 pcf_led_on_off:			;
 	pcfled:			;
-	ldi data, 0xFF		; 7:0 high
+	ldi data, 0x08		; P3 high
 	rcall twi_start		;
 	rcall twi_sla_w		;
 	rcall twi_data_w	;
@@ -60,7 +61,7 @@ pcf_led_on_off:			;
         rcall delay             ;
         rcall twi_start         ;
         rcall twi_sla_w         ;
-        ldi data, 0x00          ; 7:0 low
+        ldi data, 0x00          ; P3 low
         rcall twi_data_w        ;
         rcall twi_stop          ;
         ldi counter, 5          ; delay
@@ -148,10 +149,10 @@ twi_stop:						;
 
 error_blink:			;
         eb:                     ;
-        sbi PORTB, 0            ; B0 high
+        sbi PORTD, 7            ; D7 high
         ldi counter, 1          ; delay on
         rcall delay             ;
-        cbi PORTB, 0            ; B0 low
+        cbi PORTD, 7            ; D7 low
         ldi counter, 3         ; delay off
         rcall delay             ;
         rjmp eb                 ;
@@ -167,8 +168,8 @@ forever:			; debugging before error blink
 	rjmp forever		;
 
 led_port_init:			;
-	sbi DDRB, 0		; B0 output
-	cbi PORTB, 0		; B0 low
+	sbi DDRD, 7		; D7 output
+	cbi PORTD, 7		; D7 low
 	ret			;
 
 twi_init:			; 100 kHz @4MHz clock
