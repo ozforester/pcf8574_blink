@@ -40,8 +40,8 @@ main:				;
 	rcall timer_init	; timer0
 	rcall twi_init		; 100kHz
 	rcall twi_scan		; downwards 127..0 (0 = none answered)
-        cpi address, 0          ; there was no answer
-        brne main1              ; if not cleared
+        cpi address, 0          ; there was no answer?
+        brne main1              ;
 	rcall error_blink	; error blink
 	main1:			;
 	rcall pcf_init		;
@@ -52,7 +52,7 @@ main:				;
 
 pcf_led_on_off:			;
 	pcfled:			;
-	ldi data, 0x08		; P3 high
+	sbr data, 1<<3		; P3 high
 	rcall twi_start		;
 	rcall twi_sla_w		;
 	rcall twi_data_w	;
@@ -61,7 +61,7 @@ pcf_led_on_off:			;
         rcall delay             ;
         rcall twi_start         ;
         rcall twi_sla_w         ;
-        ldi data, 0x00          ; P3 low
+        cbr data, 1<<3          ; P3 low
         rcall twi_data_w        ;
         rcall twi_stop          ;
         ldi counter, 5          ; delay
