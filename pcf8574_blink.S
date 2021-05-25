@@ -5,19 +5,21 @@
 
 ; ATmega8 @4MHz internal osc. (H:D9, L:23)
 ; scans twi bus for pcf8574 extension
-; and instructs "remote" P3 to be toggled on and off rep.
+; and instructs "remote" P7 to be toggled on and off rep.
 ; if 16x2 lcd is connected its backlight led also blinks
 ;
-; There is no port state detection 'cause it lies in front of me (:
 ; If used in quasi-bidirectional environment you must check if port is not pulled
 ; down by its local periphery before writing him to be high remotely etc..
 ;
-; By the way. LED on D7 port will blink in case of TWI error or if device scan failed.
-; That is a copy form scanning repo. Just a bonus.
+; LED on D7 port will blink in case of TWI error or if device scan failed.
+;
+; Receiving a button press via extension is the next task
+; coming back to quasi-bidirectional cause need reading external
+; error detection ; may be counter inside flag wait loop
 
 #include <avr/io.h>
 
-#undef __SFR_OFFSET
+#undef  __SFR_OFFSET
 #define __SFR_OFFSET 0
 #define START 	  0x08
 #define REP_START 0x10
@@ -26,15 +28,17 @@
 #define DATA_ACK  0x28
 #define DATA_NACK 0x30
 
-temp =    16			; common use reg
+temp    = 16			; common reg
 counter = 17			; delay counter reg
-code =    18			; blink code reg
+code    = 18			; blink code reg
 address = 19			; twi address reg
-data = 20			; twi data reg
+data    = 20			; twi data reg
 
 .section .text			; code section
-
+.global __vector_default        ; Note [10] nongnu.org assembly
+.global TIMER0_OVF_vect         ; doc
 .global main                    ;
+
 main:				;
 	rcall led_port_init	; D7 out,low
 	rcall timer_init	; timer0
@@ -48,7 +52,7 @@ main:				;
 	rcall pcf_led_on_off	; light led connected to pcf8574
 	loop:			;
 	rjmp loop		; waste a time
-	ret			;
+ret				;
 
 pcf_led_on_off:			;
 	pcfled:			;
@@ -66,12 +70,12 @@ pcf_led_on_off:			;
         rcall twi_stop          ;
         ldi counter, 5          ; delay
         rcall delay             ;
-	rjmp pcfled		;
-	ret			;
+	rjmp pcf_led_on_off	;
+ret				;
 
 pcf_init:			;
 	nop			;
-	ret			;
+ret				;
 
 twi_scan:			;
 	ldi address, 127	; will step backward
@@ -87,7 +91,7 @@ twi_scan:			;
 	rjmp twscan1		;
 	twscan2:		;
 	rcall twi_stop		;
-	ret			;
+ret				;
 
 twi_data_w:					;
 	mov temp, data				;
@@ -104,7 +108,7 @@ twi_data_w:					;
 	breq tdw2				; ok
         rcall error_blink                       ; error (blinking loop)
 	tdw2:					;
-	ret					;
+ret						;
 
 twi_sla_w:					;
 	mov temp, address			; slave address (e.g. 0x3F as pcf of mine)
@@ -123,7 +127,7 @@ twi_sla_w:					;
 	;rcall error_blink			; uncomment if used w/o autodetect
 	ser temp				; else (temp=0xFF)
 	slaw2:					;
-	ret					;
+ret						;
 
 twi_start:						;
 	ldi temp, ((1<<TWINT)|(1<<TWSTA)|(1<<TWEN))	;
@@ -140,12 +144,12 @@ twi_start:						;
         breq start2                                     ;
 	rcall error_blink				; error (blinking loop)
 	start2:						;
-	ret						; acked
+ret							; acked
 
 twi_stop:						;
 	ldi temp, ((1<<TWINT)|(1<<TWEN)|(1<<TWSTO))	;
         out TWCR, temp                                  ;
-	ret						;
+ret							;
 
 error_blink:			;
         eb:                     ;
@@ -153,24 +157,20 @@ error_blink:			;
         ldi counter, 1          ; delay on
         rcall delay             ;
         cbi PORTD, 7            ; D7 low
-        ldi counter, 3         ; delay off
+        ldi counter, 3          ; delay off
         rcall delay             ;
         rjmp eb                 ;
-        ret                     ;
+ret				;
 
 delay:                          ; counter itself decrements by t0 isr
-wait:                           ;
         cpi counter, 0          ; just wait 0
-        brne wait               ;
-        ret                     ; voila
-
-forever:			; debugging before error blink
-	rjmp forever		;
+        brne delay              ;
+ret               		; voila
 
 led_port_init:			;
 	sbi DDRD, 7		; D7 output
 	cbi PORTD, 7		; D7 low
-	ret			;
+ret				;
 
 twi_init:			; 100 kHz @4MHz clock
 	ldi temp, 0b00001100	; 4000000 / ( 16 + 2*TWBR * 4^TWPS )
@@ -178,7 +178,7 @@ twi_init:			; 100 kHz @4MHz clock
         in temp, TWSR	        ;
 	ori temp, 0b00000011	; 64
 	out TWSR, temp		;
-	ret			;
+ret				;
 
 timer_init:			; TIMER0 (65 ms @4MHz)
         ldi temp, (1<<CS00)     ;
@@ -187,18 +187,16 @@ timer_init:			; TIMER0 (65 ms @4MHz)
         ldi temp, (1<<TOIE0)    ;
         out TIMSK, temp         ;
         sei                     ;
-	ret			;
+ret				;
 
-.global TIMER0_OVF_vect		; doc
 TIMER0_OVF_vect:		; counter--
 	push temp		;
 	in temp, SREG		; z in main loop
 	subi counter, 1		;
 	out SREG, temp		;
 	pop temp		;
-	reti			;
+reti				;
 
-.global __vector_default        ; Note [10] nongnu.org assembly
 __vector_default:		;
 	reti			;
 
